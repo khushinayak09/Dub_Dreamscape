@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Dub Dreamscape</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Open Sans', sans-serif;
+            text-align: center;
+        }
+        
+        video {
+            width: 600px;
+            border-radius: 18px;
+        }
+        
+        img {
+            width: 100%;
+        }
+        
+        h1 {
+            font-weight: 100;
+        }
+        /* video::-webkit-media-controls-volume-slider,
+        video::-webkit-media-controls-volume-meter,
+        video::-webkit-media-controls-mute-button {
+            display: none;
+        } */
+        
+        button {
+            height: 87px;
+            width: 200px;
+            cursor: pointer;
+            background-color: white;
+            border: solid #cccccc 2px;
+            margin: 2px;
+            border-radius: 18px;
+            font-size: 17px;
+            transition: all 0.1s ease;
+            color: #434343;
+        }
+        
+        button:hover {
+            border: solid #cccccc 5px;
+        }
+        
+        button.selected {
+            border: solid #4285F4 10px;
+            animation: throbbing 1s infinite;
+        }
+        
+        @keyframes throbbing {
+            0% {
+                border-color: #4285F4;
+                /* border-width: 5px; */
+            }
+            50% {
+                border-color: #86abe6;
+                /* border-width: 10px; */
+            }
+            100% {
+                border-color: #4285F4;
+                /* border-width: 5px; */
+            }
+        }
+        
+        .g-highlight {
+            font-weight: bold;
+            color: #4285F4;
+        }
+        
+        #translation {
+            max-width: 1200px;
+            display: inline-block;
+            margin: 27px 0;
+            transition: all 0.1s ease;
+            min-height: 70px;
+        }
+    </style>
+
+    <script src="translations.js"></script>
+</head>
+
+<body>
+    <!--h1>Video Dubbing with <span class="g-highlight">Google Cloud Video Intelligence</span>, <span class="g-highlight">Translate</span>, & <span class="g-highlight">Text-to-Speech</span></h1-->
+
+
+
+    <video id="video-player" src="bakery.mp4" controls></video>
+
+    <br>
+
+    <p id="translation"></p>
+
+    <audio hidden id="audio-player" controls src="dubs/English [🇬🇧] (Original).mp3"></audio>
+    <div id="button-grid">
+    </div>
+
+    <br>
+    <h2>How it works</h2>
+    <img src="arcitecture.jpg" />
+
+    <script>
+        const videoPlayer = document.getElementById('video-player');
+        const audioPlayer = document.getElementById('audio-player');
+        const translationText = document.getElementById('translation');
+
+        var current_language = 'English'
+
+
+        var buttonLabels = ['English [🇬🇧] (Original).mp3',  'Bangla [🇮🇳].mp3', 'Gujarati [🇮🇳].mp3',  'Hindi [🇮🇳].mp3',
+            'Kannada [🇮🇳].mp3', 'Malayalam [🇮🇳].mp3', 'Marathi [🇮🇳].mp3', 'Punjabi [🇮🇳].mp3',  'Tamil [🇮🇳].mp3', 'Telugu [🇮🇳].mp3', ]
+        var buttonGrid = document.getElementById('button-grid');
+
+        for (var i = 0; i < buttonLabels.length; i++) {
+
+            const label = buttonLabels[i]
+            const button = document.createElement('button');
+
+            button.textContent = label.split('.')[0].replace(/\[|\]/g, "");
+            button.dataset.track = label;
+            button.addEventListener('click', function(event) {
+                // Unselect all buttons
+                var buttons = buttonGrid.getElementsByTagName('button');
+                for (var i = 0; i < buttons.length; i++) {
+                    buttons[i].classList.remove('selected');
+                }
+                // Select the clicked button
+                button.classList.add('selected');
+                console.log(event.target.dataset.track)
+                current_language = event.target.dataset.track.split(' ')[0]
+                let audioFile = 'dubs/' + event.target.dataset.track;
+                audioPlayer.src = audioFile;
+
+                display_current_translation()
+            });
+            buttonGrid.appendChild(button);
+
+            // click first button
+            if (i == 0) {
+                button.dispatchEvent(new Event("click"));
+            }
+        }
+
+
+        function sync() {
+            audioPlayer.currentTime = videoPlayer.currentTime;
+        }
+
+        audioPlayer.addEventListener('loadeddata', function() {
+            console.log('MP3 loaded into audio player');
+            // videoPlayer.muted = true;
+            sync()
+            if (!videoPlayer.paused)
+                audioPlayer.play();
+            // Your custom code here
+        });
+
+        videoPlayer.addEventListener('seeked', function() {
+
+            console.log('seeked')
+            if (!videoPlayer.paused) {
+                sync()
+                audioPlayer.play();
+            }
+        });
+
+
+        videoPlayer.addEventListener('pause', function() {
+            console.log('Video paused');
+            sync()
+            audioPlayer.pause();
+        });
+
+        videoPlayer.addEventListener('play', function() {
+            console.log('Video played');
+            sync()
+            audioPlayer.play();
+        });
+
+        videoPlayer.addEventListener('volumechange', function() {
+            // Set the volume of the audio player to match the video player
+            if ((videoPlayer.volume == 0) || (videoPlayer.muted))
+                audioPlayer.volume = 0
+            else
+                audioPlayer.volume = videoPlayer.volume + 0.2;
+        });
+
+
+        videoPlayer.addEventListener('timeupdate', function() {
+            // The 'timeupdate' event is triggered when the time of the video changes
+            // console.log('Video time changed:', videoPlayer.currentTime);
+            display_current_translation()
+
+            // Call your custom function or perform desired actions here
+            // ...
+        });
+
+        function display_current_translation() {
+
+            let translation_index = findEncapsulatingSegmentIndex(translations.segment_times, videoPlayer.currentTime)
+            let current_translation = translations.translations[current_language][translation_index]
+            translationText.textContent = current_translation
+        }
+
+
+        function findEncapsulatingSegmentIndex(segments, currentTime) {
+            for (let i = 0; i < segments.length; i++) {
+                const segment = segments[i];
+                if (currentTime >= segment.start_time && currentTime <= segment.end_time) {
+                    return i; // Found the encapsulating segment
+                }
+            }
+            return -1; // Encapsulating segment not found
+        }
+    </script>
+
+</body>
+
+</html>
